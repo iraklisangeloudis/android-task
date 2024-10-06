@@ -1,11 +1,17 @@
 package com.example.android_task
 
+import android.Manifest
+import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.SearchView
+import android.widget.Toast
 import androidx.appcompat.widget.Toolbar
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -20,6 +26,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var taskAdapter: TaskAdapter
     private lateinit var taskViewModel: TaskViewModel
     private val apiClient = ApiClient()
+
+    private val QR_SCAN_REQUEST_CODE = 1001
+    private val CAMERA_REQUEST_CODE = 1000
+
+    private var lastBackPressedTime: Long = 0
+    private val BACK_PRESS_INTERVAL = 2000 // 2 seconds
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -157,6 +169,64 @@ class MainActivity : AppCompatActivity() {
         })
 
         return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_scan_qr -> {
+                // check for Camera Permission when the user clicks the "Scan QR" button
+                checkCameraPermission()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun startQrScanner() {
+        val scannerIntent = Intent(this, QrScannerActivity::class.java)
+        startActivityForResult(scannerIntent, QR_SCAN_REQUEST_CODE)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == QR_SCAN_REQUEST_CODE && resultCode == RESULT_OK) {
+            val qrCode = data?.getStringExtra("QR_CODE")
+            qrCode?.let {
+                // Use the scanned QR code as a search query
+                taskViewModel.searchTasks(it)
+            }
+        }
+    }
+
+    private fun checkCameraPermission() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_REQUEST_CODE)
+        } else {
+            startQrScanner()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == CAMERA_REQUEST_CODE && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startQrScanner()
+        }
+    }
+
+    override fun onBackPressed() {
+        val currentTime = System.currentTimeMillis()
+
+        if (currentTime - lastBackPressedTime < BACK_PRESS_INTERVAL) {
+            // Exit the app
+            super.onBackPressed()
+        } else {
+            // Reset search and notify user to press again to exit
+            taskViewModel.searchTasks("")
+            lastBackPressedTime = currentTime
+            Toast.makeText(this, "Press back again to exit", Toast.LENGTH_SHORT).show()
+        }
     }
 
 }

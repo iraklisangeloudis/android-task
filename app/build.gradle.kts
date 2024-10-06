@@ -37,6 +37,17 @@ android {
 }
 
 dependencies {
+    // CameraX core library
+    implementation ("androidx.camera:camera-camera2:1.1.0")
+    // CameraX lifecycle library
+    implementation ("androidx.camera:camera-lifecycle:1.1.0")
+    // CameraX view library for PreviewView
+    implementation ("androidx.camera:camera-view:1.1.0")
+    // CameraX extensions for additional features
+    implementation ("androidx.camera:camera-extensions:1.1.0")
+
+    implementation ("com.google.mlkit:barcode-scanning:17.0.3")
+
     implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
     implementation ("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
     implementation ("androidx.activity:activity-ktx:1.7.2")
