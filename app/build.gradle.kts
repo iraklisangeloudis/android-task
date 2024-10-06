@@ -39,7 +39,7 @@ android {
 dependencies {
     implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
     implementation ("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
-    implementation ("androidx.activity:activity-ktx:1.7.2")  // For by viewModels()
+    implementation ("androidx.activity:activity-ktx:1.7.2")
 
     implementation("com.squareup.okhttp3:okhttp:4.9.3")
     implementation("com.squareup.okhttp3:logging-interceptor:4.9.3")

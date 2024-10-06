@@ -2,6 +2,10 @@ package com.example.android_task
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
+import android.widget.SearchView
+import androidx.appcompat.widget.Toolbar
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -21,6 +25,13 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val toolbar = findViewById<Toolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar) // This ensures the menu is shown
+
+//        // Remove the default title completely
+//        supportActionBar?.setDisplayShowTitleEnabled(false)
+//        toolbar.title = ""
+
         recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
 
@@ -37,7 +48,7 @@ class MainActivity : AppCompatActivity() {
         taskViewModel = ViewModelProvider(this, factory)[TaskViewModel::class.java]
 
         // Observe tasks from ViewModel
-        taskViewModel.allTasks.observe(this) { tasks ->
+        taskViewModel.tasks.observe(this) { tasks ->
             tasks?.let {
                 taskAdapter.updateTasks(it)
             }
@@ -65,7 +76,8 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
                         // Insert tasks into Room using ViewModel
-                        taskViewModel.insertAll(tasks)
+//                        taskViewModel.insertAll(tasks)
+                        taskViewModel.deleteAllAndInsert(tasks)
                     }
                 }
             }
@@ -98,6 +110,54 @@ class MainActivity : AppCompatActivity() {
         return tasks
     }
 
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        menuInflater.inflate(R.menu.menu_main, menu)
+
+        val searchItem = menu?.findItem(R.id.action_search)
+        val searchView = searchItem?.actionView as SearchView
+
+        // Set up the search functionality
+        searchView.queryHint = "Search tasks..."
+
+        // Customize SearchView
+        searchView.apply {
+            queryHint = "Search tasks..."
+            setIconifiedByDefault(false) // This ensures if the search view starts collapsed or not
+        }
+
+        searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
+            override fun onQueryTextSubmit(query: String?): Boolean {
+                query?.let {
+                    taskViewModel.searchTasks(query) // Trigger the search in ViewModel
+                    searchView.clearFocus()
+                }
+                return false
+            }
+
+            override fun onQueryTextChange(newText: String?): Boolean {
+                newText?.let {
+                    taskViewModel.searchTasks(newText) // Trigger the search on text change
+                }
+                return true
+            }
+        })
+
+        // Optional: Handle the collapse/expand of SearchView
+        searchItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
+            override fun onMenuItemActionExpand(item: MenuItem): Boolean {
+                // Called when SearchView is expanded
+                return true
+            }
+
+            override fun onMenuItemActionCollapse(item: MenuItem): Boolean {
+                // Called when SearchView is collapsed
+                taskViewModel.searchTasks("") // Reset to show all items
+                return true
+            }
+        })
+
+        return true
+    }
 
 }
 

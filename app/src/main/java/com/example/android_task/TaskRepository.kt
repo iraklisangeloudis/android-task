@@ -14,4 +14,18 @@ class TaskRepository(private val taskDao: TaskDao) {
     suspend fun insertAll(tasks: List<TaskEntity>) {
         taskDao.insertTasks(tasks)
     }
+
+    suspend fun searchTasks(query: String): List<TaskEntity> {
+        return taskDao.searchTasks("%$query%")
+    }
+
+    // Get all tasks for initializing or resetting the search
+    suspend fun getAllTasks(): List<TaskEntity> {
+        return taskDao.getAllTasksList() // Add a method that returns List<TaskEntity>
+    }
+
+    suspend fun deleteAllAndInsert(tasks: List<TaskEntity>) {
+        taskDao.deleteAllTasks()
+        taskDao.insertTasks(tasks)
+    }
 }
