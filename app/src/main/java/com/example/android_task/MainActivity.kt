@@ -1,10 +1,12 @@
 package com.example.android_task
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.SearchView
@@ -15,6 +17,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.android_task.database.TaskDatabase
 import com.example.android_task.database.TaskEntity
 import com.example.android_task.viewmodel.TaskViewModel
@@ -33,6 +36,8 @@ class MainActivity : AppCompatActivity() {
     private var lastBackPressedTime: Long = 0
     private val BACK_PRESS_INTERVAL = 2000 // 2 seconds
 
+    private lateinit var swipeRefreshLayout: SwipeRefreshLayout
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -40,60 +45,92 @@ class MainActivity : AppCompatActivity() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar) // This ensures the menu is shown
 
-//        // Remove the default title completely
-//        supportActionBar?.setDisplayShowTitleEnabled(false)
-//        toolbar.title = ""
+        setupRecyclerView()
+        setupViewModel()
+        observeTasks()
 
+        login()
+
+        swipeRefreshLayout = findViewById(R.id.swipeRefresh)
+        swipeRefreshLayout.setOnRefreshListener {
+            fetchTasks()
+        }
+    }
+
+    private fun setupRecyclerView() {
         recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
-
         // Initialize the adapter and set it to the RecyclerView
         taskAdapter = TaskAdapter(emptyList())
         recyclerView.adapter = taskAdapter
+    }
 
+    private fun setupViewModel() {
         // Create the database, DAO, repository, and ViewModel factory
         val taskDao = TaskDatabase.getDatabase(application).taskDao()
         val repository = TaskRepository(taskDao)
         val factory = TaskViewModelFactory(repository)
-
         // Initialize ViewModel
         taskViewModel = ViewModelProvider(this, factory)[TaskViewModel::class.java]
+    }
 
-        // Observe tasks from ViewModel
+    private fun observeTasks() {
         taskViewModel.tasks.observe(this) { tasks ->
             tasks?.let {
                 taskAdapter.updateTasks(it)
             }
         }
+    }
 
-        // Fetch tasks from API and insert into Room
-        apiClient.login("365", "1") { token ->
+    private fun login() {
+        apiClient.login("365", "1", this) { token ->
             token?.let {
-                apiClient.getTasks(it) { tasksResponse ->
-                    tasksResponse?.let { response ->
-                        val tasks = parseTasks(response).map {
-                            TaskEntity(
-                                task = it.task,
-                                title = it.title,
-                                description = it.description,
-                                sort = it.sort,
-                                wageType = it.wageType,
-                                BusinessUnitKey = it.BusinessUnitKey,
-                                businessUnit = it.businessUnit,
-                                parentTaskID = it.parentTaskID,
-                                preplanningBoardQuickSelect = it.preplanningBoardQuickSelect,
-                                colorCode = it.colorCode,
-                                workingTime = it.workingTime,
-                                isAvailableInTimeTrackingKioskMode = it.isAvailableInTimeTrackingKioskMode
-                            )
-                        }
-                        // Insert tasks into Room using ViewModel
-//                        taskViewModel.insertAll(tasks)
-                        taskViewModel.deleteAllAndInsert(tasks)
-                    }
-                }
+                Log.d("Login", "Login successful. Token saved.")
+                fetchTasks()
+            } ?: run {
+                Log.e("Login", "Login failed or token is null.")
             }
         }
+    }
+
+    private fun fetchTasks() {
+        val token = getAccessToken(this)
+        if (token != null) {
+            apiClient.getTasks(token) { tasksResponse ->
+                tasksResponse?.let { response ->
+                    val tasks = parseTasks(response).map {
+                        TaskEntity(
+                            task = it.task,
+                            title = it.title,
+                            description = it.description,
+                            sort = it.sort,
+                            wageType = it.wageType,
+                            BusinessUnitKey = it.BusinessUnitKey,
+                            businessUnit = it.businessUnit,
+                            parentTaskID = it.parentTaskID,
+                            preplanningBoardQuickSelect = it.preplanningBoardQuickSelect,
+                            colorCode = it.colorCode,
+                            workingTime = it.workingTime,
+                            isAvailableInTimeTrackingKioskMode = it.isAvailableInTimeTrackingKioskMode
+                        )
+                    }
+                    // Insert tasks into Room database via ViewModel
+                    taskViewModel.insertAll(tasks)
+                    swipeRefreshLayout.isRefreshing = false
+                    Log.d("Tasks", "Tasks fetched and saved to DB.")
+                } ?: run {
+                    Log.e("Tasks", "Failed to fetch tasks.")
+                    swipeRefreshLayout.isRefreshing = false
+                }
+            }
+        } else {
+            Log.e("FetchTasks", "No access token found.")
+        }
+    }
+
+    private fun getAccessToken(context: Context): String? {
+        val sharedPref = context.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
+        return sharedPref.getString("access_token", null)
     }
 
     // Parse the JSON response into a list of Task objects
@@ -128,9 +165,6 @@ class MainActivity : AppCompatActivity() {
         val searchItem = menu?.findItem(R.id.action_search)
         val searchView = searchItem?.actionView as SearchView
 
-        // Set up the search functionality
-        searchView.queryHint = "Search tasks..."
-
         // Customize SearchView
         searchView.apply {
             queryHint = "Search tasks..."
@@ -154,7 +188,6 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // Optional: Handle the collapse/expand of SearchView
         searchItem.setOnActionExpandListener(object : MenuItem.OnActionExpandListener {
             override fun onMenuItemActionExpand(item: MenuItem): Boolean {
                 // Called when SearchView is expanded
@@ -174,7 +207,6 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.action_scan_qr -> {
-                // check for Camera Permission when the user clicks the "Scan QR" button
                 checkCameraPermission()
                 true
             }
@@ -230,4 +262,3 @@ class MainActivity : AppCompatActivity() {
     }
 
 }
-

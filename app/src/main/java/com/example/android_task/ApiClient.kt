@@ -1,5 +1,6 @@
 package com.example.android_task
 
+import android.content.Context
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -9,8 +10,7 @@ import java.io.IOException
 class ApiClient {
     private val client = OkHttpClient()
 
-    // Login and get the access token
-    fun login(username: String, password: String, callback: (String?) -> Unit) {
+    fun login(username: String, password: String, context: Context, callback: (String?) -> Unit) {
         val mediaType = "application/json".toMediaType()
         val requestBody = JSONObject().apply {
             put("username", username)
@@ -34,13 +34,13 @@ class ApiClient {
                 responseBody?.let { body ->
                     val json = JSONObject(body.string())
                     val accessToken = json.getJSONObject("oauth").getString("access_token")
+                    saveAccessToken(context, accessToken)
                     callback(accessToken)
                 } ?: callback(null)
             }
         })
     }
 
-    // Make an authenticated request with the access token
     fun getTasks(accessToken: String, callback: (String?) -> Unit) {
         val request = Request.Builder()
             .url("https://api.baubuddy.de/dev/index.php/v1/tasks/select")
@@ -57,5 +57,13 @@ class ApiClient {
                 callback(response.body?.string())
             }
         })
+    }
+
+    private fun saveAccessToken(context: Context, token: String) {
+        val sharedPref = context.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
+        with(sharedPref.edit()) {
+            putString("access_token", token)
+            apply() // Save access token asynchronously in SharedPreferences
+        }
     }
 }

@@ -10,7 +10,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
-    // LiveData to hold all tasks or filtered tasks
     private val _tasks = MutableLiveData<List<TaskEntity>>()
     val tasks: LiveData<List<TaskEntity>> = _tasks
 
@@ -21,22 +20,14 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
         }
     }
 
-    fun insert(task: TaskEntity) = viewModelScope.launch {
-        repository.insert(task)
-    }
-
-    fun insertAll(tasks: List<TaskEntity>) = viewModelScope.launch {
-        repository.insertAll(tasks)
-    }
-
     fun searchTasks(query: String) = viewModelScope.launch {
         val searchResults = repository.searchTasks(query)
         // Update the LiveData to reflect filtered tasks
         _tasks.postValue(searchResults)
     }
 
-    fun deleteAllAndInsert(tasks: List<TaskEntity>) = viewModelScope.launch {
-        repository.deleteAllAndInsert(tasks)
+    fun insertAll(tasks: List<TaskEntity>) = viewModelScope.launch {
+        repository.insertAll(tasks)
         _tasks.postValue(repository.getAllTasks())
     }
 }
