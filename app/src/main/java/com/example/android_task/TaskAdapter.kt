@@ -5,11 +5,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.android_task.database.TaskEntity
 
 
-class TaskAdapter(private var tasks: List<TaskEntity>) : RecyclerView.Adapter<TaskAdapter.TaskViewHolder>() {
+class TaskAdapter : ListAdapter<TaskEntity, TaskAdapter.TaskViewHolder>(TaskDiffCallback()) {
 
     class TaskViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val taskView: TextView = view.findViewById(R.id.task)
@@ -24,31 +26,31 @@ class TaskAdapter(private var tasks: List<TaskEntity>) : RecyclerView.Adapter<Ta
     }
 
     override fun onBindViewHolder(holder: TaskViewHolder, position: Int) {
-        val task = tasks[position]
+        val task = getItem(position)
 
-        // Safely parse color or use a default color if the string is empty or invalid
         val color = try {
             if (task.colorCode.isNotEmpty()) {
                 Color.parseColor(task.colorCode)
             } else {
-                Color.LTGRAY // Default color if colorCode is empty
+                Color.LTGRAY
             }
         } catch (e: IllegalArgumentException) {
-            Color.LTGRAY // Default color if parsing fails
+            Color.LTGRAY
         }
 
         holder.itemView.findViewById<View>(R.id.colorCode).setBackgroundColor(color)
-
         holder.taskView.text = task.task
         holder.titleView.text = task.title
         holder.descriptionView.text = task.description
     }
 
-    override fun getItemCount() = tasks.size
+    class TaskDiffCallback : DiffUtil.ItemCallback<TaskEntity>() {
+        override fun areItemsTheSame(oldItem: TaskEntity, newItem: TaskEntity): Boolean {
+            return oldItem.id == newItem.id
+        }
 
-    // Update the task list
-    fun updateTasks(newTasks: List<TaskEntity>) {
-        tasks = newTasks
-        notifyDataSetChanged()
+        override fun areContentsTheSame(oldItem: TaskEntity, newItem: TaskEntity): Boolean {
+            return oldItem == newItem
+        }
     }
 }

@@ -37,6 +37,7 @@ android {
 }
 
 dependencies {
+    implementation ("androidx.work:work-runtime-ktx:2.8.0")
     // CameraX core library
     implementation ("androidx.camera:camera-camera2:1.1.0")
     // CameraX lifecycle library

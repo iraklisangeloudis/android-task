@@ -6,29 +6,41 @@ import androidx.lifecycle.ViewModel
 import com.example.android_task.database.TaskEntity
 import androidx.lifecycle.viewModelScope
 import com.example.android_task.TaskRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
-    private val _tasks = MutableLiveData<List<TaskEntity>>()
-    val tasks: LiveData<List<TaskEntity>> = _tasks
 
-    init {
-        // Initialize with all tasks
-        viewModelScope.launch {
-            _tasks.postValue(repository.getAllTasks())
+    // LiveData from Room, automatically updated when the database changes
+    val tasks: LiveData<List<TaskEntity>> = repository.getAllTasksLive()
+
+    private val _isRefreshing = MutableLiveData<Boolean>()
+    val isRefreshing: LiveData<Boolean> = _isRefreshing
+
+    private val _searchResults = MutableLiveData<List<TaskEntity>>()
+    val searchResults: LiveData<List<TaskEntity>> = _searchResults
+
+    // Search for tasks based on query
+    fun searchTasks(query: String) = viewModelScope.launch {
+        val searchResults = repository.searchTasks(query)
+        _searchResults.postValue(searchResults)
+    }
+
+    // Perform login and fetch tasks (optional: if needed in the ViewModel)
+    fun loginAndFetchTasks(username: String, password: String) = viewModelScope.launch {
+        val token = repository.login(username, password)
+
+        token?.let {
+            repository.fetchAndStoreTasks(it)
         }
     }
 
-    fun searchTasks(query: String) = viewModelScope.launch {
-        val searchResults = repository.searchTasks(query)
-        // Update the LiveData to reflect filtered tasks
-        _tasks.postValue(searchResults)
-    }
+    fun refreshTasks() = viewModelScope.launch {
+        val token = repository.getToken()
 
-    fun insertAll(tasks: List<TaskEntity>) = viewModelScope.launch {
-        repository.insertAll(tasks)
-        _tasks.postValue(repository.getAllTasks())
+        token?.let {
+            repository.fetchAndStoreTasks(it)
+        }
+        _isRefreshing.postValue(false)
     }
 }
 

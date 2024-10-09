@@ -11,15 +11,13 @@ interface TaskDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTasks(tasks: List<TaskEntity>)
 
-    @Query("SELECT * FROM tasks")
-    fun getAllTasks(): LiveData<List<TaskEntity>>
-
-    @Query("SELECT * FROM tasks")
-    suspend fun getAllTasksList(): List<TaskEntity> // Use this to return a list
-
     @Query("DELETE FROM tasks")
     suspend fun deleteAllTasks()
 
     @Query("SELECT * FROM tasks WHERE task LIKE :query OR title LIKE :query OR description LIKE :query OR sort LIKE :query OR wageType LIKE :query OR BusinessUnitKey LIKE :query OR businessUnit LIKE :query")
     suspend fun searchTasks(query: String): List<TaskEntity>
+
+    @Query("SELECT * FROM tasks")
+    fun getAllTasksLive(): LiveData<List<TaskEntity>>
 }
+

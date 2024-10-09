@@ -1,34 +1,33 @@
 package com.example.android_task
 
-import android.Manifest
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.SearchView
-import android.widget.Toast
-import androidx.appcompat.widget.Toolbar
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.android_task.database.TaskDatabase
-import com.example.android_task.database.TaskEntity
 import com.example.android_task.viewmodel.TaskViewModel
 import com.example.android_task.viewmodel.TaskViewModelFactory
-import org.json.JSONArray
+import androidx.appcompat.widget.Toolbar
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
+import android.Manifest
+import android.widget.Toast
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var taskAdapter: TaskAdapter
     private lateinit var taskViewModel: TaskViewModel
-    private val apiClient = ApiClient()
 
     private val QR_SCAN_REQUEST_CODE = 1001
     private val CAMERA_REQUEST_CODE = 1000
@@ -42,6 +41,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        swipeRefreshLayout = findViewById(R.id.swipeRefresh)
+
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar) // This ensures the menu is shown
 
@@ -49,26 +50,27 @@ class MainActivity : AppCompatActivity() {
         setupViewModel()
         observeTasks()
 
-        login()
-
-        swipeRefreshLayout = findViewById(R.id.swipeRefresh)
+        // Setup the PeriodicWorker to requests the resources every 20 minutes instead of 60
+        // because the access_token from the login response expires in 1200 seconds (20 minutes)
+        setupPeriodicWorker()
+        //taskViewModel.loginAndFetchTasks("365", "1")
         swipeRefreshLayout.setOnRefreshListener {
-            fetchTasks()
+            taskViewModel.refreshTasks()
         }
     }
 
     private fun setupRecyclerView() {
         recyclerView = findViewById(R.id.recyclerView)
         recyclerView.layoutManager = LinearLayoutManager(this)
-        // Initialize the adapter and set it to the RecyclerView
-        taskAdapter = TaskAdapter(emptyList())
+        // Initialize the adapter
+        taskAdapter = TaskAdapter()
         recyclerView.adapter = taskAdapter
     }
 
     private fun setupViewModel() {
         // Create the database, DAO, repository, and ViewModel factory
         val taskDao = TaskDatabase.getDatabase(application).taskDao()
-        val repository = TaskRepository(taskDao)
+        val repository = TaskRepository(taskDao, ApiClient(applicationContext), applicationContext)
         val factory = TaskViewModelFactory(repository)
         // Initialize ViewModel
         taskViewModel = ViewModelProvider(this, factory)[TaskViewModel::class.java]
@@ -77,86 +79,26 @@ class MainActivity : AppCompatActivity() {
     private fun observeTasks() {
         taskViewModel.tasks.observe(this) { tasks ->
             tasks?.let {
-                taskAdapter.updateTasks(it)
+                taskAdapter.submitList(it)
             }
         }
-    }
-
-    private fun login() {
-        apiClient.login("365", "1", this) { token ->
-            token?.let {
-                Log.d("Login", "Login successful. Token saved.")
-                fetchTasks()
-            } ?: run {
-                Log.e("Login", "Login failed or token is null.")
-            }
+        taskViewModel.isRefreshing.observe(this) { isRefreshing ->
+            swipeRefreshLayout.isRefreshing = isRefreshing == true
+        }
+        taskViewModel.searchResults.observe(this) { searchResults ->
+            taskAdapter.submitList(searchResults)
         }
     }
 
-    private fun fetchTasks() {
-        val token = getAccessToken(this)
-        if (token != null) {
-            apiClient.getTasks(token) { tasksResponse ->
-                tasksResponse?.let { response ->
-                    val tasks = parseTasks(response).map {
-                        TaskEntity(
-                            task = it.task,
-                            title = it.title,
-                            description = it.description,
-                            sort = it.sort,
-                            wageType = it.wageType,
-                            BusinessUnitKey = it.BusinessUnitKey,
-                            businessUnit = it.businessUnit,
-                            parentTaskID = it.parentTaskID,
-                            preplanningBoardQuickSelect = it.preplanningBoardQuickSelect,
-                            colorCode = it.colorCode,
-                            workingTime = it.workingTime,
-                            isAvailableInTimeTrackingKioskMode = it.isAvailableInTimeTrackingKioskMode
-                        )
-                    }
-                    // Insert tasks into Room database via ViewModel
-                    taskViewModel.insertAll(tasks)
-                    swipeRefreshLayout.isRefreshing = false
-                    Log.d("Tasks", "Tasks fetched and saved to DB.")
-                } ?: run {
-                    Log.e("Tasks", "Failed to fetch tasks.")
-                    swipeRefreshLayout.isRefreshing = false
-                }
-            }
-        } else {
-            Log.e("FetchTasks", "No access token found.")
-        }
-    }
+    private fun setupPeriodicWorker() {
+        val workRequest = PeriodicWorkRequestBuilder<FetchTasksWorker>(20, TimeUnit.MINUTES)
+            .build()
 
-    private fun getAccessToken(context: Context): String? {
-        val sharedPref = context.getSharedPreferences("AppPreferences", Context.MODE_PRIVATE)
-        return sharedPref.getString("access_token", null)
-    }
-
-    // Parse the JSON response into a list of Task objects
-    private fun parseTasks(response: String): List<Task> {
-        val jsonArray = JSONArray(response)
-        val tasks = mutableListOf<Task>()
-
-        for (i in 0 until jsonArray.length()) {
-            val jsonObject = jsonArray.getJSONObject(i)
-            val task = Task(
-                task = jsonObject.getString("task"),
-                title = jsonObject.getString("title"),
-                description = jsonObject.getString("description"),
-                sort = jsonObject.optString("sort", ""), // Using optString to avoid null values
-                wageType = jsonObject.optString("wageType", ""),
-                BusinessUnitKey = jsonObject.optString("BusinessUnitKey", ""),
-                businessUnit = jsonObject.optString("businessUnit", ""),
-                parentTaskID = jsonObject.optString("parentTaskID", null),
-                preplanningBoardQuickSelect = jsonObject.optString("preplanningBoardQuickSelect", null),
-                colorCode = jsonObject.getString("colorCode"),
-                workingTime = jsonObject.optString("workingTime", null),
-                isAvailableInTimeTrackingKioskMode = jsonObject.optBoolean("isAvailableInTimeTrackingKioskMode", false)
-            )
-            tasks.add(task)
-        }
-        return tasks
+        WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(
+            "FetchTasksWorker",
+            ExistingPeriodicWorkPolicy.KEEP,  // Prevents duplicate work requests
+            workRequest
+        )
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -254,11 +196,9 @@ class MainActivity : AppCompatActivity() {
             // Exit the app
             super.onBackPressed()
         } else {
-            // Reset search and notify user to press again to exit
             taskViewModel.searchTasks("")
             lastBackPressedTime = currentTime
             Toast.makeText(this, "Press back again to exit", Toast.LENGTH_SHORT).show()
         }
     }
-
 }
