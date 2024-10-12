@@ -1,9 +1,19 @@
-Hello dear Android dev prospect!
+## Installation
 
-This repository is supposed to act as a playground for your submission.
-Before getting started, please make sure to clone this repository on which you will commit and push your code regularly. Once you are ready, please mail us back the link to your repository. 
+1. **Clone the repository:**
+    ```sh
+    git clone https://github.com/your-username/android-task.git
+    ```
 
-Below, you will find the **Task** definition. Happy Hacking :computer: and Good Luck :shamrock:
+2. **Open the project in Android Studio:**
+    - File > Open > Select the `android-task` directory
+
+3. **Build the project:**
+    - Build > Make Project
+
+4. **Run the project:**
+    - Run > Run 'app'
+
 
 # Task
 
