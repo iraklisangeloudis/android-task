@@ -50,10 +50,8 @@ class MainActivity : AppCompatActivity() {
         setupViewModel()
         observeTasks()
 
-        // Setup the PeriodicWorker to requests the resources every 20 minutes instead of 60
-        // because the access_token from the login response expires in 1200 seconds (20 minutes)
         setupPeriodicWorker()
-        //taskViewModel.loginAndFetchTasks("365", "1")
+
         swipeRefreshLayout.setOnRefreshListener {
             taskViewModel.refreshTasks()
         }
@@ -91,7 +89,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupPeriodicWorker() {
-        val workRequest = PeriodicWorkRequestBuilder<FetchTasksWorker>(20, TimeUnit.MINUTES)
+        val workRequest = PeriodicWorkRequestBuilder<FetchTasksWorker>(60, TimeUnit.MINUTES)
             .build()
 
         WorkManager.getInstance(applicationContext).enqueueUniquePeriodicWork(

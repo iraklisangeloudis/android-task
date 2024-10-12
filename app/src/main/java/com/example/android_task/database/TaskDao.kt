@@ -14,7 +14,7 @@ interface TaskDao {
     @Query("DELETE FROM tasks")
     suspend fun deleteAllTasks()
 
-    @Query("SELECT * FROM tasks WHERE task LIKE :query OR title LIKE :query OR description LIKE :query OR sort LIKE :query OR wageType LIKE :query OR BusinessUnitKey LIKE :query OR businessUnit LIKE :query")
+    @Query("SELECT * FROM tasks WHERE task LIKE :query OR title LIKE :query OR description LIKE :query OR sort LIKE :query OR wageType LIKE :query OR BusinessUnitKey LIKE :query OR businessUnit LIKE :query OR parentTaskID LIKE :query OR preplanningBoardQuickSelect LIKE :query OR colorCode LIKE :query OR workingTime LIKE :query OR isAvailableInTimeTrackingKioskMode LIKE :query")
     suspend fun searchTasks(query: String): List<TaskEntity>
 
     @Query("SELECT * FROM tasks")
