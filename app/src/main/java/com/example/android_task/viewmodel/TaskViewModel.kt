@@ -25,7 +25,7 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
         _searchResults.postValue(searchResults)
     }
 
-    // Perform login and fetch tasks (optional: if needed in the ViewModel)
+    // Perform login and fetch tasks (optional)
     fun loginAndFetchTasks(username: String, password: String) = viewModelScope.launch {
         val token = repository.login(username, password)
 
